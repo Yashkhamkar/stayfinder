@@ -1,23 +1,37 @@
-const ErrorResponse = require('../../utils/error/ErrorResponse');
-const User = require('../../models/User');
-const { generateToken } = require('../../utils/jwt/generateToken');
+const ErrorResponse = require("../../utils/error/ErrorResponse");
+const User = require("../../models/User");
+const { generateToken } = require("../../utils/jwt/generateToken");
 
 const loginService = async ({ email, password }) => {
-  try{
   if (!email || !password) {
-    throw new ErrorResponse('Please provide email and password', 400);
+    throw new ErrorResponse("Please provide email and password", 400);
   }
 
+  // Find user by email and include password field
   const user = await User.findByEmail(email);
-  if (!user || user.password !== password) {
-    throw new ErrorResponse('Invalid credentials', 401);
+  if (!user) {
+    throw new ErrorResponse("Invalid credentials", 401);
   }
 
-  const token = generateToken(user._id);
-  return { user: { id: user._id, name: user.name, email: user.email, isHost: user.isHost }, token };
-  } catch (error) {
-    throw new ErrorResponse(error.message || 'Server error', error.statusCode || 500);
+  // Use matchPassword() method to compare hashed password
+  const isMatch = await user.matchPassword(password);
+  if (!isMatch) {
+    throw new ErrorResponse("Invalid credentials", 401);
   }
+
+  // Create JWT token
+  const token = generateToken(user._id);
+
+  // Return user info without password
+  return {
+    user: {
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      isHost: user.isHost,
+    },
+    token,
+  };
 };
 
 module.exports = loginService;
